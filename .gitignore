@@ -1,0 +1,4 @@
+/build/
+/cmake-build-*/
+/*.0
+/*.exe
