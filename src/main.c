@@ -82,13 +82,13 @@ int main(void) {
     if(bytes_received == 0) {
         printf("Client disconnected\n");
     } else {
-        buffer[bytes_received] = '\0'; // Null-terminate the received data
+        buffer[bytes_received] = '\0';
         printf("Received message: %s\n", buffer);
     }
 
     const char *response = "Hello from Server";
 
-    ssize_t bytes_sent = send(client_socket, response, strlen(response), 0);
+    ssize_t bytes_sent = send(client_socket, buffer, bytes_received, 0);
 
     if (bytes_sent == -1) {
         perror("Send failed");
@@ -97,7 +97,7 @@ int main(void) {
         return 1;
     }
 
-    printf("Sent %zd bytes to client\n", bytes_sent);
+    printf("Echoed %zd bytes to client\n", bytes_sent);
 
     return 0;
 }
