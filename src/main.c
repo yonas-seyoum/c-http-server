@@ -5,6 +5,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+int send_all(int socket, const char *buffer, size_t length);
+
 int main(void) {
 
     struct sockaddr_in server_addr = {
@@ -86,18 +88,31 @@ int main(void) {
         printf("Received message: %s\n", buffer);
     }
 
-    const char *response = "Hello from Server";
-
-    ssize_t bytes_sent = send(client_socket, buffer, bytes_received, 0);
-
-    if (bytes_sent == -1) {
-        perror("Send failed");
+    if (send_all(client_socket, buffer, bytes_received) == -1) {
         close(client_socket);
         close(server_socket);
         return 1;
     }
 
-    printf("Echoed %zd bytes to client\n", bytes_sent);
+    printf("Echoed %zd bytes to client\n", bytes_received);
+
+    return 0;
+}
+
+int send_all(int socket, const char *buffer, size_t length){
+    size_t total_sent = 0;
+    while (total_sent < length) {
+        ssize_t bytes_sent = send(socket, buffer + total_sent, length - total_sent, 0);
+        if (bytes_sent == -1) {
+            perror("Send failed");
+            return -1;
+        }
+
+        if (bytes_sent == 0) {
+            return -1;
+        }
+        total_sent += bytes_sent;
+    }
 
     return 0;
 }
