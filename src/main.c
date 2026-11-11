@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <string.h>
 
 int main(void) {
 
@@ -61,6 +62,42 @@ int main(void) {
     printf("Client connected\n");
     printf("Client IP: %s\n", client_ip);
     printf("Client Port: %d\n", client_port);
+
+    char buffer[1024];
+
+    ssize_t bytes_received = recv( //ssize_t: a signed type used for byte count returned by recv()
+        client_socket,
+        buffer, 
+        sizeof(buffer) - 1, 
+        0
+    );
+
+    if(bytes_received == -1) {
+        perror("Receive failed");
+        close(client_socket);
+        close(server_socket);
+        return 1;
+    }
+
+    if(bytes_received == 0) {
+        printf("Client disconnected\n");
+    } else {
+        buffer[bytes_received] = '\0'; // Null-terminate the received data
+        printf("Received message: %s\n", buffer);
+    }
+
+    const char *response = "Hello from Server";
+
+    ssize_t bytes_sent = send(client_socket, response, strlen(response), 0);
+
+    if (bytes_sent == -1) {
+        perror("Send failed");
+        close(client_socket);
+        close(server_socket);
+        return 1;
+    }
+
+    printf("Sent %zd bytes to client\n", bytes_sent);
 
     return 0;
 }
