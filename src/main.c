@@ -16,7 +16,7 @@ int main(void) {
     };
 
     struct sockaddr_in client_addr;
-    socklen_t client_addr_len = sizeof(client_addr);
+    socklen_t client_addr_len;
 
     int server_socket;
     int client_socket;
@@ -47,56 +47,56 @@ int main(void) {
     printf("Socket successfully bound to port 8080\n");
     printf("Server is listening on port 8080\n");
 
-    client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
+    while (1) {
+        client_addr_len = sizeof(client_addr);
 
-    
-    if(client_socket == -1) {
-        perror("Accept failed");
-        close(server_socket);
-        return 1;
-    }
+        client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
 
-    inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
+        if(client_socket == -1) {
+            perror("Accept failed");
+            continue;
+        }
+        
+        inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
+        
+        int client_port= ntohs(client_addr.sin_port);
 
-    int client_port= ntohs(client_addr.sin_port);
+        printf("Client connected\n");
+        printf("Client IP: %s\n", client_ip);
+        printf("Client Port: %d\n", client_port);
 
+        char buffer[1024];
 
-    printf("Client connected\n");
-    printf("Client IP: %s\n", client_ip);
-    printf("Client Port: %d\n", client_port);
-
-    char buffer[1024];
-
-    ssize_t bytes_received = recv( //ssize_t: a signed type used for byte count returned by recv()
-        client_socket,
-        buffer, 
-        sizeof(buffer) - 1, 
-        0
-    );
-
-    if(bytes_received == -1) {
-        perror("Receive failed");
+        while (1) {
+            ssize_t bytes_received = recv( //ssize_t: a signed type used for byte count returned by recv()
+            client_socket,
+            buffer, 
+            sizeof(buffer) - 1, 
+            0);
+            
+            if(bytes_received == -1) {
+                perror("Receive failed");
+                break;
+            }
+            
+            if(bytes_received == 0) {
+                printf("Client disconnected\n");
+                break;
+            }
+            
+            buffer[bytes_received] = '\0';
+            printf("Received message: %s\n", buffer);
+            
+            if (send_all(client_socket, buffer, bytes_received) == -1) {
+                break;
+            }
+            
+            printf("Echoed %zd bytes to client\n", bytes_received);
+        }
+        
         close(client_socket);
-        close(server_socket);
-        return 1;
+        printf("Client socket closed\n");
     }
-
-    if(bytes_received == 0) {
-        printf("Client disconnected\n");
-    } else {
-        buffer[bytes_received] = '\0';
-        printf("Received message: %s\n", buffer);
-    }
-
-    if (send_all(client_socket, buffer, bytes_received) == -1) {
-        close(client_socket);
-        close(server_socket);
-        return 1;
-    }
-
-    printf("Echoed %zd bytes to client\n", bytes_received);
-
-    return 0;
 }
 
 int send_all(int socket, const char *buffer, size_t length){
