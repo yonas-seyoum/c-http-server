@@ -38,6 +38,14 @@ int main(void) {
         return 1;
     }
 
+    int reuse = 1;
+
+    if(setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == -1) {
+        perror("Set socket option failed");
+        close(server_socket);
+        return 1;
+    }
+
     if(bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("Bind failed");
         close(server_socket);
@@ -73,14 +81,19 @@ int main(void) {
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
 
         if(client_socket == -1) {
-            if(errno == EINTR && server_shutdown) {
-                break;
+            if(errno == EINTR) {
+                if (server_shutdown) {
+                    break;
+                }
             }
             perror("Accept failed");
             continue;
         }
         
-        inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
+        if (inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip)) == NULL) {
+            perror("Failed to convert client IP address");
+            strcpy(client_ip, "Unknown");
+        }
         
         int client_port= ntohs(client_addr.sin_port);
 
@@ -98,8 +111,12 @@ int main(void) {
             0);
             
             if(bytes_received == -1) {
-                if(errno == EINTR && server_shutdown) {
-                    break;
+                if(errno == EINTR) {
+                    if (server_shutdown) {
+                        break;
+                    }
+
+                    continue;
                 }
 
                 perror("Receive failed");
@@ -121,12 +138,20 @@ int main(void) {
             printf("Echoed %zd bytes to client\n", bytes_received);
         }
         
-        close(client_socket);
-        printf("Client socket closed\n");
+        if(close(client_socket) == -1) {
+            perror("Failed to close client socket");
+        }
+        else {
+            printf("Client socket closed\n");
+        }
     }
 
-    close(server_socket);
-    printf("Server socket closed\n");
+    if(close(server_socket) == -1) {
+        perror("Failed to close server socket");
+    }
+    else {
+        printf("Server socket closed\n");
+    }
 
     return 0;
 }
@@ -134,8 +159,12 @@ int main(void) {
 int send_all(int socket, const char *buffer, size_t length){
     size_t total_sent = 0;
     while (total_sent < length) {
-        ssize_t bytes_sent = send(socket, buffer + total_sent, length - total_sent, 0);
+        ssize_t bytes_sent = send(socket, buffer + total_sent, length - total_sent, MSG_NOSIGNAL);
         if (bytes_sent == -1) {
+            if (errno == EINTR) {
+                continue;
+            }
+
             perror("Send failed");
             return -1;
         }
