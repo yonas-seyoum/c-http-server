@@ -4,8 +4,16 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <signal.h>
+#include <errno.h>
 
 int send_all(int socket, const char *buffer, size_t length);
+volatile sig_atomic_t server_shutdown = 0;
+
+void handle_sigint(int signal_number) {
+    (void)signal_number;
+    server_shutdown = 1;
+}
 
 int main(void) {
 
@@ -47,12 +55,27 @@ int main(void) {
     printf("Socket successfully bound to port 8080\n");
     printf("Server is listening on port 8080\n");
 
-    while (1) {
+    struct sigaction sa = {0};
+
+    sa.sa_handler = handle_sigint;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        perror("Signal handler registration failed");
+        close(server_socket);
+        return 1;
+    }
+
+    while (!server_shutdown) {
         client_addr_len = sizeof(client_addr);
 
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_len);
 
         if(client_socket == -1) {
+            if(errno == EINTR && server_shutdown) {
+                break;
+            }
             perror("Accept failed");
             continue;
         }
@@ -75,6 +98,10 @@ int main(void) {
             0);
             
             if(bytes_received == -1) {
+                if(errno == EINTR && server_shutdown) {
+                    break;
+                }
+
                 perror("Receive failed");
                 break;
             }
@@ -97,6 +124,11 @@ int main(void) {
         close(client_socket);
         printf("Client socket closed\n");
     }
+
+    close(server_socket);
+    printf("Server socket closed\n");
+
+    return 0;
 }
 
 int send_all(int socket, const char *buffer, size_t length){
