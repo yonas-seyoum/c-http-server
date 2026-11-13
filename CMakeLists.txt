@@ -4,7 +4,7 @@ project(C_HTTP_Server LANGUAGES C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSION OFF)
+set(CMAKE_C_EXTENSIONS OFF)
 
 add_executable(server
     src/main.c
